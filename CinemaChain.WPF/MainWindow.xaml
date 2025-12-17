@@ -82,15 +82,32 @@
                         <ColumnDefinition Width="2*" />
                         <ColumnDefinition Width="1*" />
                     </Grid.ColumnDefinitions>
-                    <DataGrid x:Name="HallsGrid" Grid.Column="0" AutoGenerateColumns="False" 
-                              SelectionChanged="HallsGrid_SelectionChanged" IsReadOnly="True" BorderBrush="#FF69B4" BorderThickness="1">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="ID" Binding="{Binding HallId}" Width="Auto" MinWidth="60"/>
-                            <DataGridTextColumn Header="Hall Name" Binding="{Binding Name}" Width="*"/>
-                            <DataGridTextColumn Header="Seats" Binding="{Binding SeatsCount}" Width="60"/>
-                            <DataGridTextColumn Header="Cinema" Binding="{Binding Cinema.Address}" Width="*"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
+
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                            <Label Content="Filter by Cinema:" VerticalAlignment="Center" Foreground="#C71585" FontWeight="SemiBold"/>
+                            <ComboBox x:Name="HallFilterCombo" Width="200" Margin="5,0" 
+                                      DisplayMemberPath="Address" SelectedValuePath="CinemaId"
+                                      SelectionChanged="HallFilterCombo_SelectionChanged" BorderBrush="#FF69B4"/>
+                            <Button Content="Show All" Click="ClearHallFilter_Click" Width="80"/>
+                        </StackPanel>
+
+                        <DataGrid x:Name="HallsGrid" Grid.Row="1" AutoGenerateColumns="False" 
+                                  SelectionChanged="HallsGrid_SelectionChanged" IsReadOnly="True" BorderBrush="#FF69B4" BorderThickness="1">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Binding="{Binding HallId}" Width="Auto" MinWidth="60"/>
+                                <DataGridTextColumn Header="Hall Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Seats" Binding="{Binding SeatsCount}" Width="60"/>
+                                <DataGridTextColumn Header="Cinema" Binding="{Binding Cinema.Address}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+
                     <StackPanel Grid.Column="1" Margin="10,0,0,0">
                         <TextBlock Text="Hall Details" FontWeight="Bold" FontSize="16" Foreground="#C71585" Margin="0,0,0,10"/>
                         <Label Content="Hall Name:" Foreground="#C71585"/>

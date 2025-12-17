@@ -43,10 +43,46 @@ namespace CinemaChain.WPF
         private void LoadData()
         {
             var cinemas = _context.Cinemas.ToList();
+
+            // Оновлюємо таблицю кінотеатрів
             CinemasGrid.ItemsSource = cinemas;
+
+            // Оновлюємо випадаючий список для РЕДАГУВАННЯ залу
             CinemaComboBox.ItemsSource = cinemas;
+
+            // Оновлюємо випадаючий список для ФІЛЬТРАЦІЇ залів
+            HallFilterCombo.ItemsSource = cinemas;
+
+            // За замовчуванням показуємо ВСІ зали
             HallsGrid.ItemsSource = _context.Halls.Include(h => h.Cinema).ToList();
         }
+
+        // ==========================================
+        // NEW: HALLS FILTER LOGIC
+        // ==========================================
+        private void HallFilterCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (HallFilterCombo.SelectedItem is Cinema selectedCinema)
+            {
+                // Фільтруємо таблицю по ID обраного кінотеатру
+                HallsGrid.ItemsSource = _context.Halls
+                    .Include(h => h.Cinema)
+                    .Where(h => h.CinemaId == selectedCinema.CinemaId)
+                    .ToList();
+            }
+            else
+            {
+                // Якщо нічого не обрано - показуємо все
+                HallsGrid.ItemsSource = _context.Halls.Include(h => h.Cinema).ToList();
+            }
+        }
+
+        private void ClearHallFilter_Click(object sender, RoutedEventArgs e)
+        {
+            // Скидаємо вибір, що автоматично викличе SelectionChanged і покаже всі зали
+            HallFilterCombo.SelectedIndex = -1;
+        }
+
 
         // ==========================================
         // 1. MOVIES TAB
@@ -89,7 +125,7 @@ namespace CinemaChain.WPF
         private void NextPage_Click(object sender, RoutedEventArgs e) { _currentPage++; LoadMovies(); }
 
         // ==========================================
-        // 2. SALES TAB (TRANSACTIONS - SAFE VERSION)
+        // 2. SALES TAB (TRANSACTIONS)
         // ==========================================
         public class SessionDisplay { public int SessionId { get; set; } public string DisplayInfo { get; set; } = ""; }
 
@@ -149,7 +185,7 @@ namespace CinemaChain.WPF
         }
 
         // ==========================================
-        // 3. ANALYTICS TAB (FIXED SQL)
+        // 3. ANALYTICS TAB
         // ==========================================
         private void RefreshAnalytics_Click(object sender, RoutedEventArgs e)
         {
@@ -160,7 +196,6 @@ namespace CinemaChain.WPF
         {
             try
             {
-                // Завантажуємо таблицю з View
                 using var cmd = _context.Database.GetDbConnection().CreateCommand();
                 cmd.CommandText = "SELECT * FROM \"View_SessionDetails\"";
                 _context.Database.OpenConnection();
@@ -170,12 +205,8 @@ namespace CinemaChain.WPF
                 dataTable.Load(reader);
                 AnalyticsGrid.ItemsSource = dataTable.DefaultView;
 
-                // --- ВИПРАВЛЕНИЙ ЗАПИТ ТУТ ---
-                // Ми приєднуємо таблицю Session, щоб взяти ціну з неї
                 using var cmdFunc = _context.Database.GetDbConnection().CreateCommand();
-
-                // БУЛО: SELECT SUM("Price") FROM "Ticket" ... (Помилка)
-                // СТАЛО:
+                // Підрахунок доходу з правильним JOIN
                 cmdFunc.CommandText = @"
                     SELECT SUM(s.""Price"") 
                     FROM ""Ticket"" t 
@@ -183,7 +214,6 @@ namespace CinemaChain.WPF
                     WHERE t.""IsSold"" = true";
 
                 var result = cmdFunc.ExecuteScalar();
-
                 string revenue = result != DBNull.Value ? result.ToString() : "0";
                 TxtTotalRevenue.Text = $"Total Revenue: ${revenue}";
             }
