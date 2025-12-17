@@ -52,7 +52,7 @@
                     <DataGrid x:Name="CinemasGrid" Grid.Column="0" AutoGenerateColumns="False" 
                               SelectionChanged="CinemasGrid_SelectionChanged" IsReadOnly="True" BorderBrush="#FF69B4" BorderThickness="1">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="ID" Binding="{Binding CinemaId}" Width="50"/>
+                            <DataGridTextColumn Header="ID" Binding="{Binding CinemaId}" Width="Auto" MinWidth="60"/>
                             <DataGridTextColumn Header="City" Binding="{Binding City}" Width="*"/>
                             <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="*"/>
                             <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="150"/>
@@ -85,7 +85,7 @@
                     <DataGrid x:Name="HallsGrid" Grid.Column="0" AutoGenerateColumns="False" 
                               SelectionChanged="HallsGrid_SelectionChanged" IsReadOnly="True" BorderBrush="#FF69B4" BorderThickness="1">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="ID" Binding="{Binding HallId}" Width="40"/>
+                            <DataGridTextColumn Header="ID" Binding="{Binding HallId}" Width="Auto" MinWidth="60"/>
                             <DataGridTextColumn Header="Hall Name" Binding="{Binding Name}" Width="*"/>
                             <DataGridTextColumn Header="Seats" Binding="{Binding SeatsCount}" Width="60"/>
                             <DataGridTextColumn Header="Cinema" Binding="{Binding Cinema.Address}" Width="*"/>
@@ -125,7 +125,7 @@
 
                     <DataGrid x:Name="MoviesGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True" BorderBrush="#FF69B4" BorderThickness="1">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="ID" Binding="{Binding MovieId}" Width="50"/>
+                            <DataGridTextColumn Header="ID" Binding="{Binding MovieId}" Width="Auto" MinWidth="60"/>
                             <DataGridTextColumn Header="Title" Binding="{Binding Title}" Width="*"/>
                             <DataGridTextColumn Header="Duration (min)" Binding="{Binding Duration}" Width="100"/>
                             <DataGridTextColumn Header="Age" Binding="{Binding AgeRestriction}" Width="50"/>

@@ -10,13 +10,13 @@ namespace CinemaChain.WPF
     {
         private CinemaDbContext _context;
 
-        // Variables for Data
+        // Змінні для збереження стану вибору
         private Cinema? _selectedCinema = null;
         private Hall? _selectedHall = null;
 
-        // Variables for Pagination
+        // Пагінація
         private int _currentPage = 1;
-        private int _pageSize = 10; // Змінено з 3 на 10, як ви просили
+        private int _pageSize = 10;
         private int _totalMovies = 0;
 
         public MainWindow()
@@ -27,40 +27,21 @@ namespace CinemaChain.WPF
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            LoadData();
-            LoadMovies();       // Init pagination tab
-            LoadSession();     // Init transaction tab
-            RefreshAnalytics(); // Init analytics tab
-        }
-
-        private void FilterCinemas(string filterText)
-        {
-            if (string.IsNullOrWhiteSpace(filterText))
+            try
             {
-                CinemasGrid.ItemsSource = _context.Cinemas.ToList();
+                LoadData();
+                LoadMovies();
+                LoadSession();
+                RefreshAnalytics();
             }
-            else
+            catch (Exception ex)
             {
-                // Фільтрація по місту або адресі
-                CinemasGrid.ItemsSource = _context.Cinemas
-                   .Where(c => c.City.ToLower().Contains(filterText.ToLower()) ||
-                               c.Address.ToLower().Contains(filterText.ToLower()))
-                   .ToList();
-            }
-        }
-
-        // Приклад обробника події (потрібно додати TextBox в XAML і прив'язати цю подію)
-        private void SearchCinema_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (sender is TextBox textBox)
-            {
-                FilterCinemas(textBox.Text);
+                MessageBox.Show($"Error loading data: {ex.Message}");
             }
         }
 
         private void LoadData()
         {
-            // Cinemas & Halls Tab
             var cinemas = _context.Cinemas.ToList();
             CinemasGrid.ItemsSource = cinemas;
             CinemaComboBox.ItemsSource = cinemas;
@@ -68,20 +49,18 @@ namespace CinemaChain.WPF
         }
 
         // ==========================================
-        // 1. MOVIES TAB (PAGINATION & SEARCH)
+        // 1. MOVIES TAB
         // ==========================================
         private void LoadMovies()
         {
             var query = _context.Movies.AsQueryable();
 
-            // Search Logic
             string filter = SearchMovieTxt.Text.Trim();
             if (!string.IsNullOrEmpty(filter))
             {
                 query = query.Where(m => m.Title.ToLower().Contains(filter.ToLower()));
             }
 
-            // Pagination Logic
             _totalMovies = query.Count();
             int totalPages = (int)Math.Ceiling((double)_totalMovies / _pageSize);
             if (totalPages < 1) totalPages = 1;
@@ -97,42 +76,25 @@ namespace CinemaChain.WPF
             MoviesGrid.ItemsSource = items;
             TxtPageInfo.Text = $"Page {_currentPage} of {totalPages}";
 
-            // Enable/Disable buttons
             BtnPrevPage.IsEnabled = _currentPage > 1;
             BtnNextPage.IsEnabled = _currentPage < totalPages;
         }
 
         private void SearchMovies_Click(object sender, RoutedEventArgs e)
         {
-            _currentPage = 1; // Reset to first page on search
+            _currentPage = 1;
             LoadMovies();
         }
-
-        private void PrevPage_Click(object sender, RoutedEventArgs e)
-        {
-            if (_currentPage > 1)
-            {
-                _currentPage--;
-                LoadMovies();
-            }
-        }
-
-        private void NextPage_Click(object sender, RoutedEventArgs e)
-        {
-            _currentPage++;
-            LoadMovies();
-        }
+        private void PrevPage_Click(object sender, RoutedEventArgs e) { if (_currentPage > 1) { _currentPage--; LoadMovies(); } }
+        private void NextPage_Click(object sender, RoutedEventArgs e) { _currentPage++; LoadMovies(); }
 
         // ==========================================
-        // 2. SALES TAB (TRANSACTIONS)
+        // 2. SALES TAB (TRANSACTIONS - SAFE VERSION)
         // ==========================================
-
-        // Helper class for ComboBox
         public class SessionDisplay { public int SessionId { get; set; } public string DisplayInfo { get; set; } = ""; }
 
         private void LoadSession()
         {
-            // Loading sessions with simple projection for display
             var sessions = _context.Session
                 .Include(s => s.Movie)
                 .Include(s => s.Hall)
@@ -142,7 +104,6 @@ namespace CinemaChain.WPF
                     DisplayInfo = $"{s.Movie.Title} ({s.StartTime:g}) - ${s.Price}"
                 })
                 .ToList();
-
             SessionCombo.ItemsSource = sessions;
         }
 
@@ -156,44 +117,39 @@ namespace CinemaChain.WPF
 
             int sessionId = (int)SessionCombo.SelectedValue;
 
-            // === TRANSACTION START ===
-            using var transaction = _context.Database.BeginTransaction();
-            try
+            using (var localContext = new CinemaDbContext())
+            using (var transaction = localContext.Database.BeginTransaction())
             {
-                // Створення квитка
-                var ticket = new Ticket
+                try
                 {
-                    SessionId = sessionId,
-                    Row = row,
-                    SeatNumber = seat,
-                    IsSold = true
-                };
+                    var ticket = new Ticket
+                    {
+                        SessionId = sessionId,
+                        Row = row,
+                        SeatNumber = seat,
+                        IsSold = true
+                    };
 
-                _context.Tickets.Add(ticket);
-                _context.SaveChanges(); // This triggers the DB "CheckDoubleBooking" trigger
+                    localContext.Tickets.Add(ticket);
+                    localContext.SaveChanges();
 
-                transaction.Commit();
-                // === TRANSACTION COMMIT ===
+                    transaction.Commit();
 
-                MessageBox.Show("Ticket Sold Successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                TxtRow.Clear(); TxtSeat.Clear();
-
-                // Оновити статистику, бо дані змінилися
-                RefreshAnalytics();
-            }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                // === TRANSACTION ROLLBACK ===
-
-                // Show clean error message
-                string msg = ex.InnerException?.Message ?? ex.Message;
-                MessageBox.Show($"Transaction Failed (Rolled Back):\n{msg}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Ticket Sold Successfully!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    TxtRow.Clear(); TxtSeat.Clear();
+                    RefreshAnalytics();
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    string msg = ex.InnerException?.Message ?? ex.Message;
+                    MessageBox.Show($"Transaction Failed (Rolled Back):\n{msg}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
         // ==========================================
-        // 3. ANALYTICS TAB (NATIVE SQL & VIEWS)
+        // 3. ANALYTICS TAB (FIXED SQL)
         // ==========================================
         private void RefreshAnalytics_Click(object sender, RoutedEventArgs e)
         {
@@ -204,7 +160,7 @@ namespace CinemaChain.WPF
         {
             try
             {
-                // 1. Call VIEW using Raw SQL
+                // Завантажуємо таблицю з View
                 using var cmd = _context.Database.GetDbConnection().CreateCommand();
                 cmd.CommandText = "SELECT * FROM \"View_SessionDetails\"";
                 _context.Database.OpenConnection();
@@ -214,11 +170,18 @@ namespace CinemaChain.WPF
                 dataTable.Load(reader);
                 AnalyticsGrid.ItemsSource = dataTable.DefaultView;
 
-                // 2. Call SCALAR FUNCTION using Raw SQL
-                // Let's get total revenue for the first cinema (ID 10000 usually) or just any sum
-                // Тут ми трохи схитруємо і порахуємо загальну суму по всіх проданих квитках через SQL
+                // --- ВИПРАВЛЕНИЙ ЗАПИТ ТУТ ---
+                // Ми приєднуємо таблицю Session, щоб взяти ціну з неї
                 using var cmdFunc = _context.Database.GetDbConnection().CreateCommand();
-                cmdFunc.CommandText = "SELECT SUM(\"Price\") FROM \"Ticket\" t JOIN \"Session\" s ON t.\"SessionId\" = s.\"SessionId\" WHERE t.\"IsSold\" = true";
+
+                // БУЛО: SELECT SUM("Price") FROM "Ticket" ... (Помилка)
+                // СТАЛО:
+                cmdFunc.CommandText = @"
+                    SELECT SUM(s.""Price"") 
+                    FROM ""Ticket"" t 
+                    JOIN ""Session"" s ON t.""SessionId"" = s.""SessionId"" 
+                    WHERE t.""IsSold"" = true";
+
                 var result = cmdFunc.ExecuteScalar();
 
                 string revenue = result != DBNull.Value ? result.ToString() : "0";
@@ -235,7 +198,7 @@ namespace CinemaChain.WPF
         }
 
         // ==========================================
-        // EXISTING LOGIC (CINEMAS & HALLS)
+        // CRUD LOGIC (CINEMAS & HALLS)
         // ==========================================
         private void CinemasGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
